@@ -1,0 +1,97 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "FinalProject - GadiRozen with EC2 and Public IP",
+  "Resources": {
+    "MyVPCGadi": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "20.0.0.0/16",
+        "Tags": [{ "Key": "Name", "Value": "FinalProject-GadiRozen" }]
+      }
+    },
+    "PublicSubnetGadiRozen": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": { "Ref": "MyVPCGadi" },
+        "CidrBlock": "20.0.5.0/24",
+        "AvailabilityZone": "us-east-1a",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [{ "Key": "Name", "Value": "PublicSubnetGadiRozen" }]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [{ "Key": "Name", "Value": "FinalProject-GadiRozen" }]
+      }
+    },
+    "AttachGateway": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": { "Ref": "MyVPCGadi" },
+        "InternetGatewayId": { "Ref": "InternetGateway" }
+      }
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": { "Ref": "MyVPCGadi" },
+        "Tags": [{ "Key": "Name", "Value": "FinalProject-GadiRozen" }]
+      }
+    },
+    "DefaultRoute": {
+      "Type": "AWS::EC2::Route",
+      "DependsOn": "AttachGateway",
+      "Properties": {
+        "RouteTableId": { "Ref": "PublicRouteTable" },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": { "Ref": "InternetGateway" }
+      }
+    },
+    "PublicRouteTableAssoc": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": { "Ref": "PublicRouteTable" },
+        "SubnetId": { "Ref": "PublicSubnetGadiRozen" }
+      }
+    },
+    "PublicSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Allow HTTP and SSH",
+        "VpcId": { "Ref": "MyVPCGadi" },
+        "SecurityGroupIngress": [
+          { "IpProtocol": "tcp", "FromPort": 22, "ToPort": 22, "CidrIp": "0.0.0.0/0" },
+          { "IpProtocol": "tcp", "FromPort": 80, "ToPort": 80, "CidrIp": "0.0.0.0/0" }
+        ],
+        "Tags": [{ "Key": "Name", "Value": "FinalProject-GadiRozen" }]
+      }
+    },
+    "PublicEC2Instance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "InstanceType": "t2.micro",
+        "SubnetId": { "Ref": "PublicSubnetGadiRozen" },
+        "ImageId": "ami-0c7217cdde317cfec",
+        "SecurityGroupIds": [ { "Ref": "PublicSecurityGroup" } ],
+        "KeyName": "vockey",
+        "Tags": [{ "Key": "Name", "Value": "PublicEC2-GadiRozen" }],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": ["", [
+              "#!/bin/bash\n",
+              "yum update -y\n",
+              "curl -sL https://rpm.nodesource.com/setup_16.x | bash -\n",
+              "yum install -y nodejs git\n",
+              "cd /home/ec2-user\n",
+              "git clone https://github.com/GadiRozen/FinalProjectApp.git\n",
+              "cd FinalProjectApp\n",
+              "npm install\n",
+              "npm start &\n"
+            ]]
+          }
+        }
+      }
+    }
+  }
+}
